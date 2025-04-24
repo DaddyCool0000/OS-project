@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Scheduling Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch">
+            <input type="checkbox" id="theme-toggle">
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-microchip pulse"></i>
+            </div>
+            <h1>Process Scheduling Visualizer</h1>
+            <p class="subtitle">Visualize and understand CPU scheduling algorithms</p>
+            <div class="header-decoration"></div>
+        </header>
+
+        <main>
+            <section class="input-section glass-morphism">
+                <div class="section-header">
+                    <i class="fas fa-cogs"></i>
+                    <h2>Process Configuration</h2>
+                </div>
+                <div class="process-input">
+                    <div class="algorithm-selection">
+                        <h3><i class="fas fa-cogs"></i> Select Algorithm</h3>
+                        <div class="algorithm-blocks">
+                            <div class="algorithm-block" data-algorithm="fcfs">
+                                <i class="fas fa-clock"></i>
+                                <span>First Come First Serve</span>
+                            </div>
+                            <div class="algorithm-block" data-algorithm="sjf">
+                                <i class="fas fa-sort-numeric-down"></i>
+                                <span>Shortest Job First</span>
+                            </div>
+                            <div class="algorithm-block" data-algorithm="rr">
+                                <i class="fas fa-sync"></i>
+                                <span>Round Robin</span>
+                            </div>
+                            <div class="algorithm-block" data-algorithm="priority">
+                                <i class="fas fa-star"></i>
+                                <span>Priority Scheduling</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="algorithm" value="fcfs">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="time-quantum">
+                            <i class="fas fa-clock"></i>
+                            Time Quantum (for RR):
+                        </label>
+                        <input type="number" id="time-quantum" value="2" min="1" disabled>
+                    </div>
+
+                    <div id="process-table" class="modern-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> Process ID</th>
+                                    <th><i class="fas fa-hourglass-start"></i> Arrival Time</th>
+                                    <th><i class="fas fa-hourglass-half"></i> Burst Time</th>
+                                    <th><i class="fas fa-level-up-alt"></i> Priority</th>
+                                    <th><i class="fas fa-tasks"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-list">
+                                <!-- Process rows will be added here dynamically -->
+                            </tbody>
+                        </table>
+                        <button id="add-process" class="btn">
+                            <i class="fas fa-plus"></i> Add Process
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="visualization-section glass-morphism">
+                <div class="section-header">
+                    <i class="fas fa-chart-bar"></i>
+                    <h2>Visualization</h2>
+                </div>
+                <div class="controls">
+                    <button id="visualizeBtn" class="btn primary-btn">
+                        <i class="fas fa-play"></i> Visualize
+                    </button>
+                    <button id="compareAlgorithms" class="btn info-btn">
+                        <i class="fas fa-chart-bar"></i> Compare Algorithms
+                    </button>
+                    <button id="exportBtn" class="btn secondary-btn" onclick="showExportModal()">
+                        <i class="fas fa-file-export"></i> Export Results
+                    </button>
+                    <button id="resetBtn" class="btn danger-btn" onclick="resetSimulation()">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                </div>
+
+                <div class="gantt-chart-container glass-morphism">
+                    <h3><i class="fas fa-tasks"></i> Process Execution Timeline</h3>
+                    <div id="gantt-chart" class="expanded-gantt"></div>
+                    <div class="timeline">
+                        <span class="time-marker">0</span>
+                        <span class="time-marker end"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Process Timeline Analyzer -->
+            <section class="timeline-analyzer glass-morphism">
+                <h3><i class="fas fa-clock"></i> Process Timeline Analyzer</h3>
+                <div class="timeline-controls">
+                    <button id="playTimeline" class="btn">
+                        <i class="fas fa-play"></i> Play
+                    </button>
+                    <button id="pauseTimeline" class="btn" disabled>
+                        <i class="fas fa-pause"></i> Pause
+                    </button>
+                    <button id="resetTimeline" class="btn">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+                <div class="timeline-slider-container">
+                    <span id="currentTime">Time: 0</span>
+                    <input type="range" id="timelineSlider" min="0" value="0" step="1" class="timeline-slider">
+                    <span id="totalTime">Total: 0</span>
+                </div>
+                <div class="process-states">
+                    <h4>Process States</h4>
+                    <div class="process-states-legend">
+                        <div class="legend-item">
+                            <div class="state-indicator state-running"></div>
+                            <span>Running</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="state-indicator state-waiting"></div>
+                            <span>Waiting</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="state-indicator state-completed"></div>
+                            <span>Completed</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="state-indicator state-not-arrived"></div>
+                            <span>Not Arrived</span>
+                        </div>
+                    </div>
+                    <div id="processStatesList" class="process-states-list">
+                        <!-- Process states will be added here dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results and Summary Section -->
+            <section class="results-section glass-morphism">
+                <div class="results-container">
+                    <div class="results-table glass-morphism">
+                        <h3><i class="fas fa-table"></i> Results</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Process ID</th>
+                                    <th>Arrival Time</th>
+                                    <th>Burst Time</th>
+                                    <th>Completion Time</th>
+                                    <th>Turnaround Time</th>
+                                    <th>Waiting Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <!-- Results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="summary glass-morphism">
+                        <h3><i class="fas fa-chart-line"></i> Summary</h3>
+                        <div id="summary-stats">
+                            <!-- Summary statistics will be shown here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Add Algorithm Comparison Section -->
+            <section class="comparison-section glass-morphism">
+                <div class="section-header">
+                    <i class="fas fa-chart-bar"></i>
+                    <h2>Algorithm Comparison</h2>
+                </div>
+                <div class="comparison-charts">
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric-card glass-effect">
+                            <div id="avgWaitingComparison">
+                                <h3>Average Waiting Time</h3>
+                            </div>
+                        </div>
+                        <div class="metric-card glass-effect">
+                            <div id="avgTurnaroundComparison">
+                                <h3>Average Turnaround Time</h3>
+                            </div>
+                        </div>
+                        <div class="metric-card glass-effect">
+                            <div id="cpuUtilizationComparison">
+                                <h3>CPU Utilization</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Learning Center Section -->
+            <section id="learning-center" class="section">
+                <h2>Learning Center</h2>
+                <div class="learning-content">
+                    <div class="algorithm-info">
+                        <h3>Algorithm Information</h3>
+                        <div class="algorithm-details">
+                            <div class="algorithm-card">
+                                <h4>First Come First Serve (FCFS)</h4>
+                                <p>FCFS is the simplest scheduling algorithm where processes are executed in the order they arrive.</p>
+                                <ul>
+                                    <li>Non-preemptive: Once a process starts, it runs to completion</li>
+                                    <li>Simple to implement</li>
+                                    <li>Can lead to the "convoy effect" where short processes wait behind long ones</li>
+                                    <li>Average waiting time is often not optimal</li>
+                                    <li>Best for batch systems where all processes are known in advance</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="algorithm-card">
+                                <h4>Shortest Job First (SJF)</h4>
+                                <p>SJF selects the process with the smallest execution time to run next.</p>
+                                <ul>
+                                    <li>Can be preemptive or non-preemptive</li>
+                                    <li>Minimizes average waiting time</li>
+                                    <li>Requires knowledge of process execution times</li>
+                                    <li>May lead to starvation of longer processes</li>
+                                    <li>Optimal for minimizing average waiting time</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="algorithm-card">
+                                <h4>Round Robin (RR)</h4>
+                                <p>RR allocates a fixed time slice (quantum) to each process in a circular order.</p>
+                                <ul>
+                                    <li>Preemptive: Processes are interrupted after their time quantum</li>
+                                    <li>Fair allocation of CPU time</li>
+                                    <li>Good for time-sharing systems</li>
+                                    <li>Performance depends heavily on quantum size</li>
+                                    <li>No process waits more than (n-1) * quantum time units</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="algorithm-card">
+                                <h4>Priority Scheduling</h4>
+                                <p>Priority scheduling assigns priorities to processes and executes them based on priority.</p>
+                                <ul>
+                                    <li>Can be preemptive or non-preemptive</li>
+                                    <li>Higher priority processes are executed first</li>
+                                    <li>May lead to starvation of lower priority processes</li>
+                                    <li>Priority can be determined by various factors (memory requirements, I/O needs, etc.)</li>
+                                    <li>Often used in real-time systems</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Add Performance Metrics Dashboard -->
+            <section class="metrics-dashboard glass-effect">
+                <h2><i class="fas fa-tachometer-alt"></i> Performance Dashboard</h2>
+                <div class="metrics-container">
+                    <div class="metric-box glass-effect">
+                        <h3>Throughput</h3>
+                        <div id="throughputMeter"></div>
+                    </div>
+                    <div class="metric-box glass-effect">
+                        <h3>Context Switches</h3>
+                        <div id="contextSwitches"></div>
+                    </div>
+                    <div class="metric-box glass-effect">
+                        <h3>CPU Utilization</h3>
+                        <div id="cpuUtilization"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Created with <i class="fas fa-heart"></i> for OS enthusiasts</p>
+        </footer>
+    </div>
+
+    <!-- Process Inspector Modal -->
+    <div id="process-modal" class="modal">
+        <div class="modal-content glass-morphism">
+            <span class="close-modal">&times;</span>
+            <div class="modal-header">
+                <i class="fas fa-info-circle"></i>
+                <h2>Process Details</h2>
+            </div>
+            <div class="process-details">
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-fingerprint"></i> Process ID:</span>
+                    <span class="detail-value" id="modal-process-id"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-hourglass-start"></i> Arrival Time:</span>
+                    <span class="detail-value" id="modal-arrival-time"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-hourglass-half"></i> Burst Time:</span>
+                    <span class="detail-value" id="modal-burst-time"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-play"></i> Start Time:</span>
+                    <span class="detail-value" id="modal-start-time"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-flag-checkered"></i> Completion Time:</span>
+                    <span class="detail-value" id="modal-completion-time"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-history"></i> Turnaround Time:</span>
+                    <span class="detail-value" id="modal-turnaround-time"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label"><i class="fas fa-clock"></i> Waiting Time:</span>
+                    <span class="detail-value" id="modal-waiting-time"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="modal">
+        <div class="modal-content glass-effect">
+            <button class="close-modal">&times;</button>
+            <h2>Export Results</h2>
+            <div class="export-options">
+                <button class="btn primary-btn" onclick="exportToPDF()">
+                    <i class="fas fa-file-pdf"></i> Export as PDF
+                </button>
+                <button class="btn info-btn" onclick="exportToExcel()">
+                    <i class="fas fa-file-excel"></i> Export as Excel
+                </button>
+                <button class="btn secondary-btn" onclick="saveConfiguration()">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
